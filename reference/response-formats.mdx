@@ -1,0 +1,347 @@
+---
+title: "Response Formats"
+description: "Reference documentation for available response formats in the GSS StatsBank API"
+---
+
+## Overview
+
+The GSS StatsBank API supports multiple output formats for retrieved data. The format is specified in the `response` component of your query using the `format` parameter.
+
+## Specifying Format
+
+The format is defined in the query list:
+
+```r
+query_list = list(
+  query = list(
+    # variable selections
+  ),
+  response = list(
+    format = "csv"  # specify desired format here
+  )
+)
+```
+
+## Available Formats
+
+The GSS StatsBank API, built on PxWeb technology, supports multiple formats. Refer to the [PxWeb API documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) for the complete list.
+
+### CSV Format
+
+<ParamField path="format" type="string" default="csv">
+  Returns data as comma-separated values.
+</ParamField>
+
+**Usage:**
+```r
+response = list(format = "csv")
+```
+
+**Characteristics:**
+- Human-readable tabular format
+- Easy to import into spreadsheet applications
+- Compatible with `readr::read_csv()` in R
+- Typically returns data in "wide" format with regions as columns
+
+**Processing in R:**
+```r
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+### JSON Format
+
+<ParamField path="format" type="string" default="json">
+  Returns data as standard JSON.
+</ParamField>
+
+**Usage:**
+```r
+response = list(format = "json")
+```
+
+**Characteristics:**
+- Structured hierarchical data
+- Easy to parse programmatically
+- Good for web applications and APIs
+- Compatible with `resp_body_json()` in R
+
+**Processing in R:**
+```r
+data = response |> 
+  resp_body_json()
+```
+
+### JSON-stat Format
+
+<ParamField path="format" type="string" default="json-stat">
+  Returns data in JSON-stat format (version 1.x).
+</ParamField>
+
+**Usage:**
+```r
+response = list(format = "json-stat")
+```
+
+**Characteristics:**
+- Standardized format for statistical data
+- Includes metadata alongside data values
+- Supported by statistical software and libraries
+- More verbose than plain JSON
+
+### JSON-stat2 Format
+
+<ParamField path="format" type="string" default="json-stat2">
+  Returns data in JSON-stat format (version 2.x).
+</ParamField>
+
+**Usage:**
+```r
+response = list(format = "json-stat2")
+```
+
+**Characteristics:**
+- Updated version of JSON-stat
+- Improved efficiency and structure
+- Better support for modern statistical applications
+
+## Format Selection Guidelines
+
+### Use CSV When:
+- Working with R and tidyverse tools
+- Need to quickly view data in Excel or Google Sheets
+- Performing data analysis and visualization
+- Want a simple, straightforward format
+
+**Recommended for:** Most R users and data analysis workflows
+
+### Use JSON When:
+- Building web applications
+- Need programmatic access to nested data
+- Integrating with JavaScript applications
+- Prefer object-oriented data structures
+
+**Recommended for:** API integrations and web development
+
+### Use JSON-stat/JSON-stat2 When:
+- Working with statistical software that supports the format
+- Need rich metadata alongside data
+- Building statistical applications
+- Require standardized statistical data exchange
+
+**Recommended for:** Statistical institutions and specialized applications
+
+## Complete Examples
+
+### CSV Example
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+
+# Fetch and parse CSV
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+### JSON Example
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list("Total households in occupied dwelling unit")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(
+         filter = "item",
+         values = list("Ghana", "Greater Accra")
+       )
+    )
+  ),
+  response = list(
+    format = "json"
+  )
+)
+
+# Fetch and parse JSON
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_json()
+```
+
+## Processing CSV Data
+
+CSV responses from the API typically come in "wide" format, which may require reshaping:
+
+```r
+# Raw CSV response
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+# Parse and transform to tidy format
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  tidyr::pivot_longer(
+    cols = -1, 
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  ) |>
+  tidyr::pivot_wider(
+    names_from = 1, 
+    values_from = count
+  )
+```
+
+### Wide Format Example
+
+Raw CSV from API:
+```
+WaterDisposal,Ghana,Western,Central
+"Total households",8356779,620785,543219
+"Sewerage system",192638,9238,12156
+```
+
+### Tidy Format After Transformation
+
+After `pivot_longer` and `pivot_wider`:
+```
+Geographic_Area  | Total households | Sewerage system
+-----------------+------------------+----------------
+Ghana            | 8356779          | 192638
+Western          | 620785           | 9238
+Central          | 543219           | 12156
+```
+
+## Response Body Methods
+
+### For CSV Format
+
+Use `resp_body_raw()` to get raw bytes, then parse with `read_csv()`:
+
+```r
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+### For JSON Formats
+
+Use `resp_body_json()` to automatically parse JSON:
+
+```r
+data = response |> 
+  resp_body_json()
+```
+
+### For Other Formats
+
+Use `resp_body_string()` to get the raw text:
+
+```r
+raw_data = response |> 
+  resp_body_string()
+```
+
+## Additional Format Options
+
+The PxWeb API may support additional formats depending on the configuration. Consult the [PxWeb API documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) for:
+- Excel formats (XLSX)
+- SDMX formats
+- XML formats
+- Custom formats specific to the installation
+
+## Error Handling
+
+### Invalid Format
+
+If an unsupported format is specified, the API will return an error:
+
+```r
+# This may fail if 'xlsx' is not supported
+response = list(format = "xlsx")
+```
+
+Always refer to the API documentation or test with a small query first.
+
+### Format Not Specified
+
+If the `format` parameter is omitted, the API's default format will be used (typically JSON).
+
+## Performance Considerations
+
+### CSV
+- Generally smaller file size than JSON
+- Faster parsing in R with `readr`
+- Best for large datasets
+
+### JSON
+- Larger file size due to structure overhead
+- Slower parsing for very large datasets
+- Better for nested/hierarchical data
+
+### JSON-stat
+- Largest file size due to metadata inclusion
+- Slowest parsing
+- Best when metadata is critical
+
+## Recommended Workflow
+
+For most R-based data analysis projects:
+
+1. **Use CSV format** for data retrieval
+2. **Parse with `readr::read_csv()`** for fast, type-safe loading
+3. **Transform with `tidyr`** to reshape data as needed
+4. **Analyze with tidyverse tools** or base R
+
+```r
+# Complete workflow
+response = table_req |> 
+  req_body_json(list(
+    query = query_list$query,
+    response = list(format = "csv")
+  )) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  # Transform as needed
+  tidyr::pivot_longer(-1) |> 
+  # Analyze
+  dplyr::filter(value > 1000)
+```

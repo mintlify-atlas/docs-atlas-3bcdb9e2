@@ -1,0 +1,503 @@
+---
+title: "Complete Example"
+description: "Full end-to-end example of retrieving data from the GSS StatsBank API using R"
+---
+
+## Overview
+
+This page contains a complete, working example that demonstrates the entire workflow for retrieving data from the GSS StatsBank API, from initial setup through data retrieval and transformation.
+
+## Complete Script
+
+Here is the full code from start to finish. You can copy and paste this directly into your R script to retrieve the data.
+
+```r
+library(httr2)
+library(tidyverse)
+
+# --- 1. Setup Helper Function ---
+
+build_url = function(URL, ...) {
+    path = list(...)
+    req = request(URL)
+    
+    # Add each folder name to the URL path incrementally
+    full_req = purrr::reduce(path, req_url_path_append, .init = req)
+    
+    # Check if the last part of the path ends in ".px" (indicating a table)
+    is_table = FALSE
+    if (length(path) > 0) {
+      if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+        is_table = TRUE
+      }
+    }
+
+    # Fetch the content to see what is inside (GET request)
+    response = req_perform(full_req)
+    body = resp_body_json(response)
+
+    if (is_table) {
+        message("Endpoint reached: Table found.")
+        message("Available variables:")
+        print(map_chr(body$variables, "code"))
+    } else {
+        # If it is a folder, list the children IDs
+        key = if(length(path) == 0) "dbid" else "id"
+        print(map_chr(body, key))
+    }
+
+    return(full_req) 
+}
+
+# --- 2. Connect and Navigate ---
+
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+
+# Navigate to the specific table
+# Note: You can run build_url(URL, "PHC 2021 StatsBank") interactively to explore folders
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+```
+
+```
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+```r
+# --- 3. Define the Query ---
+
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+
+# --- 4. Fetch and Clean Data ---
+
+response =
+  table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()  
+
+data = 
+  response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  tidyr::pivot_longer(
+    cols = -1, 
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  ) |>
+  tidyr::pivot_wider(
+    names_from = 1, 
+    values_from = count) |> 
+  rename(total_households = `Total households in occupied dwelling unit`,
+  sewerage_diposal = `Through the sewerage system`)
+
+# View final result
+head(data, n=10)
+```
+
+## Expected Output
+
+```
+# A tibble: 10 × 3
+   Geographic_Area                           total_households sewerage_diposal
+   <chr>                                                <dbl>            <dbl>
+ 1 Ghana                                              8356779           192638
+ 2 Western                                             620785             9238
+ 3 Jomoro Municipal                                     39438              418
+ 4 Ellembelle                                           37206              651
+ 5 Nzema East Municipal                                 28386              116
+ 6 Ahanta West Municipal                                47288              581
+ 7 Effia Kwesimintsim Municipal                         53717             1650
+ 8 Sekondi Takoradi Metropolitan Area (STMA)            73876             1406
+ 9 STMA-Takoradi                                        16271              323
+10 STMA-Sekondi                                         17137              404
+```
+
+## Step-by-Step Breakdown
+
+### Step 1: Load Required Packages
+
+```r
+library(httr2)
+library(tidyverse)
+```
+
+**Purpose:**
+- `httr2`: Handles HTTP requests and responses
+- `tidyverse`: Provides data manipulation tools (includes `purrr`, `readr`, `tidyr`, `dplyr`)
+
+### Step 2: Define Helper Function
+
+```r
+build_url = function(URL, ...) {
+    path = list(...)
+    req = request(URL)
+    
+    # Add each folder name to the URL path incrementally
+    full_req = purrr::reduce(path, req_url_path_append, .init = req)
+    
+    # Check if the last part of the path ends in ".px" (indicating a table)
+    is_table = FALSE
+    if (length(path) > 0) {
+      if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+        is_table = TRUE
+      }
+    }
+
+    # Fetch the content to see what is inside (GET request)
+    response = req_perform(full_req)
+    body = resp_body_json(response)
+
+    if (is_table) {
+        message("Endpoint reached: Table found.")
+        message("Available variables:")
+        print(map_chr(body$variables, "code"))
+    } else {
+        # If it is a folder, list the children IDs
+        key = if(length(path) == 0) "dbid" else "id"
+        print(map_chr(body, key))
+    }
+
+    return(full_req) 
+}
+```
+
+**Purpose:**
+- Automates navigation through the API hierarchy
+- Detects whether you've reached a table or folder
+- Displays available options at each level
+- Returns a reusable request object
+
+See [build_url() Function](/reference/build-url-function) for detailed documentation.
+
+### Step 3: Connect to API and Navigate
+
+```r
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+
+table_req = build_url(URL, 
+                      "PHC 2021 StatsBank", 
+                      "Water and Sanitation", 
+                      "waterDisposal_table.px")
+```
+
+**Purpose:**
+- Establishes base API URL
+- Navigates to the specific table: Water Disposal data from the 2021 Population and Housing Census
+- Saves the request object for later use
+
+**Output:**
+```
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+These are the available variables we can query.
+
+### Step 4: Construct Query
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+```
+
+**Purpose:**
+- Defines which data to retrieve
+- Selects two water disposal categories
+- Requests data for all geographic areas
+- Specifies CSV format for response
+
+See [Query Structure](/reference/query-structure) for detailed documentation.
+
+### Step 5: Fetch Data
+
+```r
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+```
+
+**Purpose:**
+- Attaches the query to the saved request
+- Sends POST request to the API
+- Retrieves raw response data
+
+### Step 6: Parse and Transform Data
+
+```r
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  tidyr::pivot_longer(
+    cols = -1, 
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  ) |>
+  tidyr::pivot_wider(
+    names_from = 1, 
+    values_from = count) |> 
+  rename(total_households = `Total households in occupied dwelling unit`,
+  sewerage_diposal = `Through the sewerage system`)
+```
+
+**Purpose:**
+- Extracts raw CSV bytes from response
+- Parses CSV into a data frame
+- Transforms from wide to tidy format
+- Renames columns for easier analysis
+
+**Transformation Details:**
+1. **`resp_body_raw()`**: Gets raw byte content
+2. **`read_csv()`**: Parses CSV into tibble
+3. **`pivot_longer()`**: Converts geographic areas from columns to rows
+4. **`pivot_wider()`**: Converts disposal types from rows to columns
+5. **`rename()`**: Creates more convenient column names
+
+### Step 7: View Results
+
+```r
+head(data, n=10)
+```
+
+**Purpose:**
+- Displays the first 10 rows of the cleaned dataset
+- Confirms successful data retrieval and transformation
+
+## Key Concepts Demonstrated
+
+### 1. API Navigation
+
+The example shows how to:
+- Start with a base URL
+- Navigate through database levels
+- Reach a specific table
+- Save the connection for reuse
+
+### 2. Query Construction
+
+Demonstrates:
+- Variable selection with specific values
+- Using "item" filter for specific choices
+- Using "all" filter for comprehensive data
+- Specifying response format
+
+### 3. Data Retrieval
+
+Shows:
+- Attaching queries to requests
+- Performing POST requests
+- Handling API responses
+
+### 4. Data Transformation
+
+Illustrates:
+- Parsing CSV responses
+- Converting wide to tidy format
+- Creating analysis-ready data frames
+- Renaming columns for clarity
+
+## Modifying the Example
+
+### Different Table
+
+To query a different table, change the navigation path:
+
+```r
+# Example: Population data instead of water disposal
+table_req = build_url(URL, 
+                      "PHC 2021 StatsBank", 
+                      "Population", 
+                      "population_table.px")
+```
+
+### Different Variables
+
+Modify the query to select different values:
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Thrown onto the ground/street/outside",
+          "Through drainage into a pit (soak away)")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(
+         filter = "item",
+         values = list("Ghana", "Greater Accra", "Ashanti")
+       )
+    )
+  ),
+  response = list(format = "csv")
+)
+```
+
+### Different Format
+
+Request JSON instead of CSV:
+
+```r
+response = list(format = "json")
+
+# Parse differently
+data = response |> 
+  resp_body_json()
+```
+
+See [Response Formats](/reference/response-formats) for more options.
+
+## Exploratory Navigation
+
+Before running the full script, you may want to explore available options:
+
+```r
+# View all databases
+build_url(URL)
+
+# View topics in PHC 2021
+build_url(URL, "PHC 2021 StatsBank")
+
+# View tables in Water and Sanitation
+build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation")
+
+# View variables in a specific table
+table_req = build_url(URL, 
+                      "PHC 2021 StatsBank", 
+                      "Water and Sanitation", 
+                      "waterDisposal_table.px")
+```
+
+## Discovering Variable Values
+
+To see what values are available for a variable:
+
+```r
+# Fetch table metadata
+metadata = table_req |> 
+  req_perform() |> 
+  resp_body_json()
+
+# Extract values for WaterDisposal variable
+variable_info = metadata$variables |> 
+  purrr::keep(~ .x$code == "WaterDisposal") |> 
+  purrr::flatten()
+
+# Display options
+tibble(Code = unlist(variable_info$values))
+```
+
+Output:
+```
+# A tibble: 6 × 1
+  Code                                      
+  <chr>                                     
+1 Total households in occupied dwelling unit
+2 Thrown onto the ground/street/outside     
+3 Through the sewerage system               
+4 Through drainage into a pit (soak away)   
+5 Flows or thrown into drains/gutter        
+6 Other (Specify)
+```
+
+## Prerequisites
+
+Ensure you have the required packages installed:
+
+```r
+install.packages("httr2")
+install.packages("tidyverse")
+```
+
+Load them before running the example:
+
+```r
+library(httr2)
+library(tidyverse)
+```
+
+## Troubleshooting
+
+### Connection Errors
+
+If you receive connection errors:
+- Check your internet connection
+- Verify the API URL is correct and accessible
+- Ensure no firewall is blocking HTTPS connections
+
+### Variable Not Found
+
+If a variable code is not recognized:
+- Use `build_url()` to verify available variables
+- Check spelling and capitalization (case-sensitive)
+- Ensure you're querying the correct table
+
+### Empty Results
+
+If the query returns no data:
+- Verify variable values exist in the metadata
+- Check filter type matches your intention
+- Ensure all required variables are included in the query
+
+### Parse Errors
+
+If data parsing fails:
+- Verify response format matches parsing method
+- Check that CSV format was requested if using `read_csv()`
+- Inspect raw response with `resp_body_string()`
+
+## Next Steps
+
+After successfully retrieving data:
+
+1. **Explore other tables** in different databases
+2. **Combine multiple queries** to build comprehensive datasets
+3. **Automate data updates** by scheduling R scripts
+4. **Create visualizations** using `ggplot2` or other tools
+5. **Build dashboards** with Shiny or RMarkdown
+
+## Additional Resources
+
+- [build_url() Function Reference](/reference/build-url-function)
+- [Query Structure Reference](/reference/query-structure)
+- [Response Formats Reference](/reference/response-formats)
+- [PxWeb API Documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf)

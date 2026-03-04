@@ -1,0 +1,426 @@
+---
+title: Working with Metadata
+description: Learn how to inspect table metadata to discover valid variables and values for constructing queries
+---
+
+## Overview
+
+Before constructing a query, you need to know what values are valid for each variable in a table. The GSS StatsBank API provides metadata for every table that acts like a menu of available options. This guide shows you how to retrieve and inspect metadata to build accurate queries.
+
+## Why Metadata Matters
+
+When building queries, you might wonder:
+
+- What are the exact values I can use for the "WaterDisposal" variable?
+- What options are available for "Geographic_Area"?
+- Are these values case-sensitive?
+
+Metadata answers these questions by providing the complete list of valid values for each variable.
+
+<Note>
+Metadata is automatically fetched when you navigate to a table, but you can also retrieve it explicitly to inspect the available options.
+</Note>
+
+## Prerequisites
+
+This guide assumes you've:
+
+- Established a connection to the API
+- Navigated to a specific table
+- Saved the table request to a variable
+
+```r
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+```
+
+## Retrieving Metadata
+
+<Steps>
+
+<Step title="Fetch the Table Metadata">
+
+Perform a GET request to retrieve metadata:
+
+```r
+metadata = table_req |> 
+  req_perform() |> 
+  resp_body_json()
+```
+
+This returns a nested list containing all table information, including variables and their valid values.
+
+</Step>
+
+<Step title="Understand the Metadata Structure">
+
+The metadata object contains several components:
+
+- `title`: The table title
+- `variables`: A list of all variables in the table
+- `comments`: Any notes about the data
+
+Each variable contains:
+- `code`: The variable identifier used in queries
+- `text`: A human-readable description
+- `values`: List of valid values
+- `valueTexts`: Descriptions of each value
+
+</Step>
+
+</Steps>
+
+## Inspecting Variable Values
+
+<Steps>
+
+<Step title="Find a Specific Variable">
+
+Filter the metadata to inspect a single variable:
+
+```r
+variable_info = metadata$variables |> 
+  purrr::keep(~ .x$code == "WaterDisposal") |> 
+  purrr::flatten()
+```
+
+This extracts all information about the "WaterDisposal" variable.
+
+</Step>
+
+<Step title="Extract Valid Values">
+
+Create a tibble of available options:
+
+```r
+tibble(
+  Code = unlist(variable_info$values)
+)
+```
+
+Output:
+
+```r
+# A tibble: 6 × 1
+  Code                                      
+  <chr>                                     
+1 Total households in occupied dwelling unit
+2 Thrown onto the ground/street/outside     
+3 Through the sewerage system               
+4 Through drainage into a pit (soak away)   
+5 Flows or thrown into drains/gutter        
+6 Other (Specify)                           
+```
+
+<Tip>
+These are the exact values you must use in your query's `values` list. Copy them directly to avoid typos.
+</Tip>
+
+</Step>
+
+<Step title="View All Variables at Once">
+
+See all variables in the table:
+
+```r
+map_chr(metadata$variables, "code")
+```
+
+Output:
+
+```r
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+</Step>
+
+</Steps>
+
+## Creating a Helper Function
+
+Streamline metadata inspection with a reusable function:
+
+```r
+get_variable_values = function(table_req, variable_code) {
+  # Fetch metadata
+  metadata = table_req |> 
+    req_perform() |> 
+    resp_body_json()
+  
+  # Find the specific variable
+  variable_info = metadata$variables |> 
+    purrr::keep(~ .x$code == variable_code) |> 
+    purrr::flatten()
+  
+  # Return a tibble of values
+  tibble(
+    Code = unlist(variable_info$values),
+    Description = unlist(variable_info$valueTexts)
+  )
+}
+```
+
+Usage:
+
+```r
+# Get all water disposal options
+get_variable_values(table_req, "WaterDisposal")
+
+# Get all geographic areas
+get_variable_values(table_req, "Geographic_Area")
+```
+
+## Understanding Variable Types
+
+<Accordion title="Classification Variables">
+
+Variables like "WaterDisposal" represent categories:
+
+```r
+get_variable_values(table_req, "WaterDisposal")
+
+# Returns categorical options:
+# - Total households
+# - Sewerage system
+# - Drainage into pit
+# etc.
+```
+
+Use the `"item"` filter to select specific categories in your query.
+
+</Accordion>
+
+<Accordion title="Geographic Variables">
+
+Variables like "Geographic_Area" represent locations:
+
+```r
+get_variable_values(table_req, "Geographic_Area")
+
+# Returns locations:
+# - Ghana
+# - Western
+# - Ashanti
+# etc.
+```
+
+You can select specific regions or use `filter = "all"` for all locations.
+
+</Accordion>
+
+<Accordion title="Time Variables">
+
+Some tables have time periods (though not in our example):
+
+```r
+# If a table had a "Year" variable:
+get_variable_values(table_req, "Year")
+
+# Would return years:
+# - 2020
+# - 2021
+# - 2022
+```
+
+</Accordion>
+
+## Exploring Complete Table Structure
+
+View comprehensive metadata for a table:
+
+```r
+# Fetch metadata
+metadata = table_req |> 
+  req_perform() |> 
+  resp_body_json()
+
+# Table title
+metadata$title
+
+# All variables
+map_chr(metadata$variables, "code")
+
+# First variable details
+metadata$variables[[1]]$code
+metadata$variables[[1]]$text
+length(metadata$variables[[1]]$values)  # Number of values
+```
+
+## Building Queries from Metadata
+
+Use metadata inspection to construct accurate queries:
+
+<Steps>
+
+<Step title="Inspect Available Values">
+
+```r
+# See what water disposal options exist
+water_options = get_variable_values(table_req, "WaterDisposal")
+print(water_options)
+```
+
+</Step>
+
+<Step title="Select Values for Your Query">
+
+```r
+# Choose specific options from the metadata output
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system",
+          "Through drainage into a pit (soak away)"
+        )
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(format = "csv")
+)
+```
+
+</Step>
+
+<Step title="Execute the Query">
+
+```r
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+</Step>
+
+</Steps>
+
+## Common Metadata Patterns
+
+### Finding the Total Category
+
+Many variables include a "Total" category for aggregated data:
+
+```r
+water_options = get_variable_values(table_req, "WaterDisposal")
+water_options |> filter(str_detect(Code, "Total"))
+
+# Result: "Total households in occupied dwelling unit"
+```
+
+<Tip>
+Including the "Total" category in your query allows you to calculate percentages and proportions.
+</Tip>
+
+### Checking Geographic Hierarchy
+
+Geographic areas often follow a hierarchy:
+
+```r
+geo_options = get_variable_values(table_req, "Geographic_Area")
+head(geo_options, 20)
+
+# Typically shows:
+# - National level (Ghana)
+# - Regional level (Western, Ashanti, etc.)
+# - District level (within each region)
+```
+
+## Best Practices
+
+1. **Always Inspect Metadata First**: Before building a query, check what values are available
+2. **Copy Exact Values**: Variable values are case-sensitive and must match exactly
+3. **Save Metadata Locally**: For tables you use frequently, save metadata to avoid repeated API calls
+4. **Check for Updates**: Metadata may change when new data is added to tables
+
+<Warning>
+**Case Sensitivity**: Values like "Through the sewerage system" and "through the sewerage system" are different. Always use the exact case returned by the metadata.
+</Warning>
+
+<Warning>
+**Special Characters**: Some values contain special characters or parentheses. Use them exactly as shown in the metadata.
+</Warning>
+
+## Complete Metadata Workflow
+
+Here's a complete example workflow:
+
+```r
+library(httr2)
+library(tidyverse)
+
+# Helper function
+get_variable_values = function(table_req, variable_code) {
+  metadata = table_req |> 
+    req_perform() |> 
+    resp_body_json()
+  
+  variable_info = metadata$variables |> 
+    purrr::keep(~ .x$code == variable_code) |> 
+    purrr::flatten()
+  
+  tibble(
+    Code = unlist(variable_info$values)
+  )
+}
+
+# Connect and navigate
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+
+# Inspect metadata
+water_disposal_options = get_variable_values(table_req, "WaterDisposal")
+print(water_disposal_options)
+
+# Build query using valid values from metadata
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(format = "csv")
+)
+
+# Execute query
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+## Next Steps
+
+You now have a complete understanding of how to work with the GSS StatsBank API. You can:
+
+- Connect to the API
+- Navigate databases and tables
+- Inspect metadata to find valid values
+- Construct accurate queries
+- Retrieve and parse data
+
+For more advanced usage patterns and tips, refer to the [Complete Example](/reference/complete-example) documentation.

@@ -1,0 +1,116 @@
+---
+title: Connecting to the API
+description: Learn how to establish a connection to the GSS StatsBank API using R and httr2
+---
+
+## Overview
+
+The GSS StatsBank API is built on [PxWeb](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) technology, a standard used by many statistical agencies worldwide. Think of the API like a file explorer on your computer: it has a hierarchy of "folders" (Databases and Levels) that eventually lead to "files" (Tables).
+
+## Prerequisites
+
+Before connecting to the API, ensure you have the required R packages installed:
+
+```r
+library(httr2)
+library(tidyverse)
+```
+
+<Note>
+The `httr2` package handles HTTP requests and responses, while `tidyverse` is used for data manipulation tasks.
+</Note>
+
+## Establishing the Connection
+
+<Steps>
+
+<Step title="Define the Base URL">
+
+Start by setting up the base URL for the GSS StatsBank API:
+
+```r
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+request = request(URL)
+```
+
+This creates a request object that you'll use to interact with the API.
+
+</Step>
+
+<Step title="Test the Connection">
+
+Perform a simple request to verify the connection is working:
+
+```r
+response = request |> 
+    req_perform()
+
+response |> 
+    resp_body_json()
+```
+
+This should return a list of available databases in the StatsBank system.
+
+</Step>
+
+<Step title="View Available Databases">
+
+The response will show all accessible databases:
+
+```r
+[[1]]
+[[1]]$dbid
+[1] "Annual Household Income and Expenditure Survey (AHIES)"
+
+[[2]]
+[[2]]$dbid
+[1] "Education(Admin)"
+
+[[7]]
+[[7]]$dbid
+[1] "PHC 2021 StatsBank"
+
+# ... more databases
+```
+
+Each database contains organized datasets on specific topics.
+
+</Step>
+
+</Steps>
+
+## Understanding the API Structure
+
+The GSS StatsBank API follows a hierarchical structure:
+
+- **Root Level**: Lists all available databases
+- **Database Level**: Contains topic folders (e.g., "Water and Sanitation", "Education")
+- **Topic Level**: Contains individual data tables (ending in `.px`)
+- **Table Level**: Contains the actual data and metadata
+
+<Tip>
+Think of navigating the API like browsing folders on your computer. You start at the root, open a database folder, then a topic folder, and finally access a specific table file.
+</Tip>
+
+## Common Databases
+
+Here are some frequently used databases available through the API:
+
+| Database | Description |
+|----------|-------------|
+| PHC 2021 StatsBank | 2021 Population and Housing Census data |
+| PHC2010 | 2010 Population and Housing Census data |
+| GLSS7 | Ghana Living Standards Survey Round 7 |
+| Annual Household Income and Expenditure Survey (AHIES) | Household income and expenditure data |
+| Ghana Census of Agriculture (GCA) | Agricultural census data |
+| Macroeconomic Indicators | Economic indicators and statistics |
+
+<Warning>
+Some databases may have similar names (e.g., "Macro Economic Indicators" vs "Macroeconomic Indicators"). Always verify the exact `dbid` value when constructing your API paths.
+</Warning>
+
+## Next Steps
+
+Now that you've established a connection to the API, you're ready to navigate through databases to find the specific tables you need.
+
+See the [Navigating Databases](/guides/navigating-databases) guide to learn how to explore the API structure and locate specific data tables.

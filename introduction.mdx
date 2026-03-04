@@ -1,0 +1,45 @@
+---
+title: "Introduction"
+description: "Learn how to use R to programmatically retrieve data from the GSS StatsBank API"
+---
+
+## Overview
+
+The Ghana Statistical Service (GSS) provides survey and census data through the [StatsBank](https://statsbank.statsghana.gov.gh/index.html). While you can manually visit the website and download tables as Excel or CSV files, this approach becomes tedious for large projects or when you need to update data frequently.
+
+This guide shows you how to use **R** to retrieve data programmatically from the GSS StatsBank API, allowing you to automate data collection and maintain reproducible workflows.
+
+## What You'll Learn
+
+This documentation will walk you through:
+
+- Setting up your R environment with the necessary packages
+- Connecting to the GSS StatsBank API
+- Navigating the API's hierarchical structure to find tables
+- Constructing queries to retrieve specific data
+- Parsing and transforming the response into analysis-ready dataframes
+
+## About the API
+
+The StatsBank API is built on [PxWeb](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) technology, a standard used by many statistical agencies worldwide. Think of the API like a file explorer on your computer:
+
+- **Databases** are the top-level folders (e.g., "PHC 2021 StatsBank", "GLSS7")
+- **Levels** are subfolders within databases (e.g., "Water and Sanitation", "Education")
+- **Tables** are the actual data files (ending in `.px`)
+
+<Note>
+The StatsBank website provides a built-in "API Query" option for any table, which you can use as a reference when constructing your own queries.
+</Note>
+
+## Example Use Cases
+
+This approach is particularly useful when you need to:
+
+- Update dashboards or reports with the latest data automatically
+- Retrieve multiple related tables for comparative analysis
+- Integrate GSS data into automated workflows or applications
+- Maintain version-controlled, reproducible data pipelines
+
+## Next Steps
+
+Ready to get started? Head to the [Prerequisites](/prerequisites) page to set up your R environment.

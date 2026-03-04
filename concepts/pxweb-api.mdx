@@ -1,0 +1,147 @@
+---
+title: PxWeb API Technology
+description: Understanding the PxWeb API technology that powers the GSS StatsBank
+---
+
+## What is PxWeb?
+
+The GSS StatsBank API is built on **PxWeb** technology, a standardized API framework developed by Statistics Sweden and used by statistical agencies worldwide. PxWeb provides a consistent, RESTful interface for accessing statistical databases programmatically.
+
+<Info>
+PxWeb is maintained by Statistics Sweden (SCB) and is used by numerous national statistical offices globally, ensuring reliability and adherence to international standards.
+</Info>
+
+## How PxWeb Works
+
+PxWeb organizes statistical data using a hierarchical file-system-like structure:
+
+```
+API Base URL
+└── Databases (e.g., "PHC 2021 StatsBank", "GLSS7")
+    └── Topics (e.g., "Water and Sanitation", "Population")
+        └── Tables (e.g., "waterDisposal_table.px")
+```
+
+<Note>
+Think of the API like a file explorer on your computer: it has a hierarchy of "folders" (Databases and Topics) that eventually lead to "files" (Tables).
+</Note>
+
+## Key Characteristics
+
+### RESTful Architecture
+
+The PxWeb API follows REST principles:
+- **GET requests** retrieve information about available databases, topics, and table metadata
+- **POST requests** retrieve actual data from tables with specified filters and format
+
+### Table Identification
+
+Tables in the PxWeb system are identified by the `.px` extension:
+
+```r
+# Example table names
+"waterDisposal_table.px"
+"mainwater_table.px"
+"timetaken.px"
+```
+
+When you reach a path ending in `.px`, you've found a data table rather than a navigation folder.
+
+### Standardized Response Format
+
+The API returns JSON responses at each navigation level:
+
+<Accordion title="Database Level Response">
+At the root level, the API returns available databases:
+
+```json
+[
+  {
+    "dbid": "PHC 2021 StatsBank",
+    "text": "PHC 2021 StatsBank"
+  },
+  {
+    "dbid": "GLSS7",
+    "text": "GLSS7"
+  }
+]
+```
+</Accordion>
+
+<Accordion title="Topic Level Response">
+Within a database, the API returns available topics:
+
+```json
+[
+  {
+    "id": "Water and Sanitation",
+    "text": "Water and Sanitation"
+  },
+  {
+    "id": "Population",
+    "text": "Population"
+  }
+]
+```
+
+<Note>
+Notice that the root level uses `"dbid"` while sub-levels use `"id"` for identification.
+</Note>
+</Accordion>
+
+<Accordion title="Table Metadata Response">
+When you reach a table, the API returns metadata including available variables:
+
+```json
+{
+  "variables": [
+    {
+      "code": "WaterDisposal",
+      "text": "Water Disposal Method",
+      "values": ["Total households", "Through sewerage system", ...]
+    },
+    {
+      "code": "Geographic_Area",
+      "text": "Geographic Area",
+      "values": ["Ghana", "Western", ...]
+    }
+  ]
+}
+```
+</Accordion>
+
+## API Endpoints
+
+The GSS StatsBank API base URL is:
+
+```
+https://statsbank.statsghana.gov.gh:443/api/v1/en/
+```
+
+Endpoints are constructed by appending the database, topic, and table names:
+
+```
+{base_url}/{database}/{topic}/{table}
+```
+
+### Example Endpoint
+
+```
+https://statsbank.statsghana.gov.gh:443/api/v1/en/PHC%202021%20StatsBank/Water%20and%20Sanitation/waterDisposal_table.px
+```
+
+<Tip>
+Spaces in database, topic, and table names are URL-encoded as `%20` in the actual HTTP requests.
+</Tip>
+
+## Official Documentation
+
+For detailed technical specifications of the PxWeb API, refer to the official documentation:
+
+[PxWeb API Documentation (PDF)](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf)
+
+The official documentation includes:
+- Complete API specification
+- Advanced query filter options
+- Supported response formats
+- Error handling guidelines

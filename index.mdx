@@ -1,97 +1,231 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "GSS StatsBank API with R"
+description: "Access Ghana Statistical Service census and survey data programmatically using R and the PxWeb API"
+mode: "custom"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#006B3F] via-[#005530] to-[#004422] dark:from-[#004422] dark:via-[#003318] dark:to-[#002211] py-20">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Access Ghana Census Data with R
+        </h1>
+        <p className="text-base sm:text-lg lg:text-xl text-white/90 max-w-2xl mb-8">
+          A comprehensive guide for retrieving Ghana Statistical Service census and survey data programmatically using R and the PxWeb API. Automate data collection, build queries, and transform results for analysis.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a 
+            href="/quickstart" 
+            className="inline-flex items-center px-6 py-3 bg-white text-[#006B3F] font-semibold rounded-lg hover:bg-gray-50 transition-colors no-underline"
+          >
+            Get Started
+            <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+          <a 
+            href="/concepts/pxweb-api" 
+            className="inline-flex items-center px-6 py-3 border-2 border-white/30 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 hover:border-white/50 transition-colors no-underline"
+          >
+            Learn Concepts
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="bg-[#1a1d27] rounded-xl p-6 border border-white/10 shadow-2xl">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <pre className="text-sm text-gray-300 overflow-x-auto">
+            <code>{`library(httr2)
+library(tidyverse)
 
-Get your documentation site up and running in minutes.
+# Connect to GSS API
+URL <- "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+# Navigate to census data
+table_req <- build_url(
+  URL, 
+  "PHC 2021 StatsBank",
+  "Population",
+  "population_table.px"
+)
 
-## Make it yours
+# Query and retrieve data
+data <- table_req |>
+  req_body_json(query_list) |>
+  req_perform() |>
+  resp_body_raw() |>
+  read_csv()`}</code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Design a docs site that looks great and empowers your users.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Quick start
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Get up and running with GSS StatsBank API in minutes
+  </p>
+  
+  <Steps>
+    <Step title="Install required packages">
+      Install the `httr2` package for HTTP requests and `tidyverse` for data manipulation.
+      
+      ```r
+      install.packages("httr2")
+      install.packages("tidyverse")
+      
+      library(httr2)
+      library(tidyverse)
+      ```
+    </Step>
+    
+    <Step title="Connect to the API">
+      Set up the base URL and create a request object to interact with the GSS StatsBank API.
+      
+      ```r
+      URL <- "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+      request <- request(URL)
+      ```
+    </Step>
+    
+    <Step title="Navigate to your data">
+      Use the `build_url()` helper function to navigate through the database hierarchy to find your desired table.
+      
+      ```r
+      table_req <- build_url(URL, "PHC 2021 StatsBank", "Population", "population_table.px")
+      ```
+      
+      <Note>
+        The API returns available databases, topics, and tables at each level. You can explore interactively to find the data you need.
+      </Note>
+    </Step>
+    
+    <Step title="Retrieve and transform data">
+      Construct a query, fetch the data, and transform it into a clean dataframe for analysis.
+      
+      ```r
+      query_list <- list(
+        query = list(
+          list(
+            code = "Geographic_Area",
+            selection = list(filter = "all", values = list("*"))
+          )
+        ),
+        response = list(format = "csv")
+      )
+      
+      data <- table_req |>
+        req_body_json(query_list) |>
+        req_perform() |>
+        resp_body_raw() |>
+        readr::read_csv()
+      ```
+    </Step>
+  </Steps>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Explore by topic
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Learn key concepts and master the GSS StatsBank API
+  </p>
+  
+  <CardGroup cols={2}>
+    <Card title="PxWeb API" icon="globe" href="/concepts/pxweb-api">
+      Understand the PxWeb technology that powers the GSS StatsBank API
+    </Card>
+    <Card title="Database structure" icon="database" href="/concepts/database-structure">
+      Learn how data is organized in a hierarchical folder structure
+    </Card>
+    <Card title="API navigation" icon="map" href="/concepts/api-navigation">
+      Master the technique for navigating through databases to find tables
+    </Card>
+    <Card title="Build URL function" icon="code" href="/reference/build-url-function">
+      Reference guide for the helper function that simplifies navigation
+    </Card>
+    <Card title="Query structure" icon="brackets-curly" href="/reference/query-structure">
+      Learn how to construct JSON queries to filter and select data
+    </Card>
+    <Card title="Working with metadata" icon="table" href="/guides/working-with-metadata">
+      Discover available variables and values before querying
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Step-by-step guides
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Follow detailed tutorials for common tasks
+  </p>
+  
+  <CardGroup cols={2}>
+    <Card title="Connecting to the API" icon="plug" href="/guides/connecting-to-api">
+      Set up your R environment and establish a connection to GSS StatsBank
+    </Card>
+    <Card title="Navigating databases" icon="folder-tree" href="/guides/navigating-databases">
+      Walk through databases, topics, and tables to find your data
+    </Card>
+    <Card title="Constructing queries" icon="rectangle-code" href="/guides/constructing-queries">
+      Build JSON queries with filters and selections
+    </Card>
+    <Card title="Retrieving data" icon="download" href="/guides/retrieving-data">
+      Fetch data and transform it into analysis-ready dataframes
+    </Card>
+  </CardGroup>
+</div>
 
-Everything you need to create world-class documentation.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white mb-4">
+    Resources
+  </h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">
+    Additional references and documentation
+  </p>
+  
+  <CardGroup cols={3}>
+    <Card title="Available databases" icon="books" href="/resources/available-databases">
+      Browse all databases available through GSS StatsBank
+    </Card>
+    <Card title="PxWeb documentation" icon="file-lines" href="/resources/pxweb-documentation">
+      Official PxWeb API documentation and specifications
+    </Card>
+    <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+      Common issues and solutions
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="bg-gradient-to-r from-[#006B3F] to-[#005530] dark:from-[#004422] dark:to-[#003318] rounded-2xl p-8 lg:p-12 border border-[#006B3F]/20">
+    <div className="max-w-3xl">
+      <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+        Ready to start working with census data?
+      </h2>
+      <p className="text-base sm:text-lg text-white/90 mb-6">
+        Follow our quickstart guide to retrieve your first dataset from the Ghana Statistical Service in minutes.
+      </p>
+      <a 
+        href="/quickstart" 
+        className="inline-flex items-center px-6 py-3 bg-white text-[#006B3F] font-semibold rounded-lg hover:bg-gray-50 transition-colors no-underline"
+      >
+        Get Started Now
+        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</div>

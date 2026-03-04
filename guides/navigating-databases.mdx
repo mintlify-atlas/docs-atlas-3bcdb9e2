@@ -1,0 +1,237 @@
+---
+title: Navigating Databases
+description: Step-by-step guide for exploring the API structure and locating specific data tables
+---
+
+## Overview
+
+Navigating the GSS StatsBank API requires building URLs incrementally by inspecting the API at each level. This guide shows you how to create a helper function to streamline this process and efficiently find the data you need.
+
+## The Navigation Challenge
+
+Manually typing URLs for each level can be tedious and error-prone. A better approach is to create a reusable function that:
+
+- Accepts a base URL and folder names
+- Checks if you've reached a final table
+- Lists available options at each level
+- Returns a request object for later use
+
+## Creating a Helper Function
+
+<Steps>
+
+<Step title="Define the build_url Function">
+
+Create a helper function to automate navigation:
+
+```r
+build_url = function(URL, ...) {
+    path = list(...)
+    req = request(URL)
+    
+    # Add each folder name to the URL path incrementally
+    full_req = purrr::reduce(path, req_url_path_append, .init = req)
+    
+    # Check if the last part of the path ends in ".px" (indicating a table)
+    is_table = FALSE
+
+    if (length(path) > 0) {
+      if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+        is_table = TRUE
+      }
+    }
+
+    # Fetch the content to see what is inside (GET request)
+    response = req_perform(full_req)
+    body = resp_body_json(response)
+
+    if (is_table) {
+        # If it is a table, print the variable names (metadata)
+        message("Endpoint reached: Table found.")
+        message("Available variables:")
+        print(map_chr(body$variables, "code"))
+    } else {
+        # If it is a folder/database, list the children IDs
+        # (Note: The root level (databases) uses 'dbid', sub-levels use 'id')
+        key = if(length(path) == 0) "dbid" else "id"
+        print(map_chr(body, key))
+    }
+
+    # Return the request object to be assigned to a variable
+    return(full_req) 
+}
+```
+
+<Note>
+The function automatically detects whether you've reached a table (files ending in `.px`) or are still in a folder level.
+</Note>
+
+</Step>
+
+<Step title="Connect to the Base URL">
+
+Set up your connection:
+
+```r
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+```
+
+</Step>
+
+<Step title="Explore the PHC 2021 Database">
+
+Start by viewing available topics in the PHC 2021 database:
+
+```r
+# We don't need to save this step, just viewing the topics
+build_url(URL, "PHC 2021 StatsBank")
+```
+
+This returns:
+
+```r
+ [1] "Difficulties in Performing Activities"
+ [2] "Economic Activity"                    
+ [3] "Education and Literacy"               
+ [4] "Fertility and Mortality"              
+ [5] "Housing"                              
+ [6] "Human Development Indicators"         
+ [7] "ICT"                                  
+ [8] "Multidimensional Poverty"             
+ [9] "Population"                           
+[10] "Structures"                           
+[11] "Water and Sanitation"                 
+```
+
+</Step>
+
+<Step title="Navigate to a Specific Topic">
+
+Dig deeper into a topic folder:
+
+```r
+build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation")
+```
+
+This lists all available tables:
+
+```r
+ [1] "defaecate_table.px"      "domesticWater_table.px" 
+ [3] "housetoilet_table.px"    "mainwater_table.px"     
+ [5] "service_table.px"        "solidDisposal_table.px" 
+ [7] "storage_table.px"        "timetaken.px"           
+ [9] "toiletfacility_table.px" "toiletservice_table.px" 
+[11] "toilettype_table.px"     "waterDisposal_table.px" 
+```
+
+</Step>
+
+<Step title="Reach the Target Table">
+
+Navigate to a specific table and save the connection:
+
+```r
+# This lists the variables inside the table and saves the connection
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+```
+
+Output:
+
+```r
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+<Tip>
+Notice we assigned the result to `table_req`. This saves the connection so you can use it later without retyping the entire URL path.
+</Tip>
+
+</Step>
+
+<Step title="Verify the Connection">
+
+Check the saved request object:
+
+```r
+print(table_req)
+```
+
+```r
+<httr2_request>
+GET https://statsbank.statsghana.gov.gh:443/api/v1/en/PHC%202021%20StatsBank/Water%20and%20Sanitation/waterDisposal_table.px
+Body: empty
+```
+
+</Step>
+
+</Steps>
+
+## Understanding the Output
+
+### Folder Level Output
+
+When you're at a folder level (database or topic), the function displays available subfolders or tables:
+
+```r
+build_url(URL, "PHC 2021 StatsBank")
+# Shows: list of topics within the database
+```
+
+### Table Level Output
+
+When you reach a table (ending in `.px`), the function shows available variables:
+
+```r
+build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+# Shows: [1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+<Warning>
+Always use the exact names returned by the API. The names are case-sensitive and may include spaces.
+</Warning>
+
+## Navigation Patterns
+
+<Accordion title="Exploring Multiple Topics">
+
+You can explore multiple topics in the same session:
+
+```r
+# Explore different topics
+build_url(URL, "PHC 2021 StatsBank", "Education and Literacy")
+build_url(URL, "PHC 2021 StatsBank", "Economic Activity")
+build_url(URL, "PHC 2021 StatsBank", "Housing")
+```
+
+Each call shows the available tables in that topic area.
+
+</Accordion>
+
+<Accordion title="Switching Between Databases">
+
+You can navigate different databases by changing the first parameter:
+
+```r
+# PHC 2021 Census
+build_url(URL, "PHC 2021 StatsBank")
+
+# Living Standards Survey
+build_url(URL, "GLSS7")
+
+# Agricultural Census
+build_url(URL, "Ghana Census of Agriculture (GCA)")
+```
+
+</Accordion>
+
+## Best Practices
+
+1. **Save Table Connections**: Always assign the final table request to a variable (e.g., `table_req`) so you can reuse it
+2. **Explore Incrementally**: Navigate one level at a time to understand the structure
+3. **Note Exact Names**: Copy the exact folder and table names from the API output
+4. **Check for .px Extension**: Tables always end in `.px`, folders do not
+
+## Next Steps
+
+Now that you can navigate to specific tables, learn how to construct queries to retrieve the exact data you need.
+
+See the [Constructing Queries](/guides/constructing-queries) guide to learn how to build JSON queries for data retrieval.

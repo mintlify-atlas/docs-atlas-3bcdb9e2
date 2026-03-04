@@ -1,0 +1,220 @@
+---
+title: "build_url() Function"
+description: "Reference documentation for the build_url() helper function used to navigate the GSS StatsBank API hierarchy"
+---
+
+## Overview
+
+The `build_url()` function is a helper that simplifies navigation through the GSS StatsBank API's hierarchical structure of databases, folders, and tables. It builds the request URL incrementally and automatically detects whether you've reached a final table or are still navigating folders.
+
+## Function Definition
+
+```r
+build_url = function(URL, ...) {
+    path = list(...)
+    req = request(URL)
+    
+    # Add each folder name to the URL path incrementally
+    full_req = purrr::reduce(path, req_url_path_append, .init = req)
+    
+    # Check if the last part of the path ends in ".px" (indicating a table)
+    is_table = FALSE
+
+    if (length(path) > 0) {
+      if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+        is_table = TRUE
+      }
+    }
+
+    # Fetch the content to see what is inside (GET request)
+    response = req_perform(full_req)
+    body = resp_body_json(response)
+
+    if (is_table) {
+        # If it is a table, print the variable names (metadata)
+        message("Endpoint reached: Table found.")
+        message("Available variables:")
+        print(map_chr(body$variables, "code"))
+    } else {
+        # If it is a folder/database, list the children IDs
+        # (Note: The root level (databases) uses 'dbid', sub-levels use 'id')
+        key = if(length(path) == 0) "dbid" else "id"
+        print(map_chr(body, key))
+    }
+
+    # Return the request object to be assigned to a variable
+    return(full_req) 
+}
+```
+
+## Parameters
+
+<ParamField path="URL" type="string" required>
+  The base URL for the GSS StatsBank API. Typically:
+  ```r
+  "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+  ```
+</ParamField>
+
+<ParamField path="..." type="string">
+  Variable number of path segments representing the folder hierarchy to navigate. Each argument represents one level deeper in the API structure (e.g., database name, folder name, table name).
+</ParamField>
+
+## Return Value
+
+Returns an `httr2_request` object with the fully constructed URL path. This object can be:
+- Assigned to a variable for later use
+- Passed to `req_body_json()` to attach a query
+- Used with `req_perform()` to execute the request
+
+## Behavior
+
+### Folder Detection
+
+When navigating folders (non-table endpoints), the function:
+1. Performs a GET request to the constructed URL
+2. Prints available child items (databases or folders)
+3. Uses `dbid` for root-level databases, `id` for sub-level items
+4. Returns the request object
+
+### Table Detection
+
+When a table is reached (path ends with `.px`), the function:
+1. Detects the `.px` extension using regex pattern matching
+2. Prints a confirmation message: "Endpoint reached: Table found."
+3. Extracts and displays available variable codes from the metadata
+4. Returns the request object pointing to the table
+
+## Usage Examples
+
+### Listing Available Databases
+
+```r
+# View all available databases at the root level
+build_url(URL)
+```
+
+### Navigating to a Folder
+
+```r
+# Open the PHC 2021 database and view topics
+build_url(URL, "PHC 2021 StatsBank")
+```
+
+Output:
+```
+[1] "Difficulties in Performing Activities"
+[2] "Economic Activity"                    
+[3] "Education and Literacy"               
+[4] "Fertility and Mortality"              
+[5] "Housing"                              
+[6] "Human Development Indicators"         
+[7] "ICT"                                  
+[8] "Multidimensional Poverty"             
+[9] "Population"                           
+[10] "Structures"                           
+[11] "Water and Sanitation"
+```
+
+### Navigating to a Table
+
+```r
+# Navigate to a specific table and save the request
+table_req = build_url(URL, 
+                      "PHC 2021 StatsBank", 
+                      "Water and Sanitation", 
+                      "waterDisposal_table.px")
+```
+
+Output:
+```
+Endpoint reached: Table found.
+Available variables:
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+### Multi-level Navigation
+
+```r
+# Step 1: View Water and Sanitation tables
+build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation")
+
+# Output shows available tables:
+# [1] "defaecate_table.px"      "domesticWater_table.px" 
+# [3] "housetoilet_table.px"    "mainwater_table.px"     
+# ...
+
+# Step 2: Navigate to specific table
+table_req = build_url(URL, 
+                      "PHC 2021 StatsBank", 
+                      "Water and Sanitation", 
+                      "waterDisposal_table.px")
+```
+
+## Implementation Details
+
+### Path Building
+
+The function uses `purrr::reduce()` to incrementally append each path segment to the request URL:
+
+```r
+full_req = purrr::reduce(path, req_url_path_append, .init = req)
+```
+
+This ensures proper URL encoding and path construction.
+
+### Table Detection Logic
+
+The function identifies tables by checking if the last path element ends with `.px`:
+
+```r
+if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+    is_table = TRUE
+}
+```
+
+The PxWeb system used by GSS StatsBank always uses the `.px` extension for table files.
+
+### Key Selection for Listing Items
+
+The API uses different JSON keys at different levels:
+- Root level (databases): uses `dbid`
+- Sub-levels (folders/tables): uses `id`
+
+```r
+key = if(length(path) == 0) "dbid" else "id"
+print(map_chr(body, key))
+```
+
+## Common Patterns
+
+### Exploratory Navigation
+
+```r
+# Don't assign to variable when just exploring
+build_url(URL, "PHC 2021 StatsBank")
+build_url(URL, "PHC 2021 StatsBank", "Education and Literacy")
+```
+
+### Saving Table Endpoints
+
+```r
+# Always assign table endpoints to a variable for later use
+table_req = build_url(URL, "PHC 2021 StatsBank", "Population", "population_table.px")
+
+# Use the saved request for queries
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+```
+
+## Dependencies
+
+This function requires:
+- `httr2`: For HTTP request handling
+- `purrr`: For functional programming utilities (`reduce`, `map_chr`, `keep`, `flatten`)
+
+```r
+library(httr2)
+library(tidyverse)  # includes purrr
+```

@@ -1,0 +1,302 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when working with the GSS StatsBank API
+---
+
+This guide covers common issues you may encounter when using the GSS StatsBank API with R and how to resolve them.
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="API returns empty or unexpected results">
+    **Problem:** Your query returns no data or results that don't match expectations.
+
+    **Solutions:**
+
+    1. **Verify variable names** - Variable codes are case-sensitive. Check the table metadata to confirm exact spelling:
+    
+    ```r
+    metadata = table_req |> 
+      req_perform() |> 
+      resp_body_json()
+    
+    # List all variable codes
+    purrr::map_chr(metadata$variables, "code")
+    ```
+
+    2. **Verify value names** - Values must match exactly as they appear in the metadata:
+    
+    ```r
+    # Get available values for a specific variable
+    variable_info = metadata$variables |> 
+      purrr::keep(~ .x$code == "WaterDisposal") |> 
+      purrr::flatten()
+    
+    tibble(Code = unlist(variable_info$values))
+    ```
+
+    3. **Include all required variables** - Some tables require selections for all variables. If in doubt, use the `"all"` filter:
+    
+    ```r
+    list(
+      code = "Geographic_Area",
+      selection = list(filter = "all", values = list("*"))
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Connection timeout or network errors">
+    **Problem:** Requests fail with timeout or connection errors.
+
+    **Solutions:**
+
+    1. **Increase timeout** - Large tables may take longer to process:
+    
+    ```r
+    table_req |> 
+      req_body_json(query_list) |> 
+      req_timeout(300) |>  # 300 seconds = 5 minutes
+      req_perform()
+    ```
+
+    2. **Check API availability** - Verify the API is accessible:
+    
+    ```r
+    request("https://statsbank.statsghana.gov.gh:443/api/v1/en/") |> 
+      req_perform() |> 
+      resp_status()
+    ```
+
+    3. **Reduce query size** - Request smaller subsets of data instead of entire tables:
+    
+    ```r
+    # Instead of filter = "all", select specific items
+    list(
+      code = "Geographic_Area",
+      selection = list(
+        filter = "item",
+        values = list("Ghana", "Greater Accra", "Ashanti")
+      )
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Invalid JSON error">
+    **Problem:** API returns an error about invalid JSON format.
+
+    **Solutions:**
+
+    1. **Verify JSON structure** - Ensure your query list follows the correct format:
+    
+    ```r
+    query_list = list(
+      query = list(
+        list(
+          code = "VariableName",
+          selection = list(
+            filter = "item",
+            values = list("Value1", "Value2")
+          )
+        )
+      ),
+      response = list(
+        format = "csv"
+      )
+    )
+    ```
+
+    2. **Check for special characters** - Some variable values may contain special characters. Use exact strings from metadata.
+
+    3. **Validate with jsonlite** - Test your JSON structure:
+    
+    ```r
+    library(jsonlite)
+    toJSON(query_list, auto_unbox = TRUE, pretty = TRUE)
+    ```
+  </Accordion>
+
+  <Accordion title="Table not found or 404 error">
+    **Problem:** API returns a 404 error when trying to access a table.
+
+    **Solutions:**
+
+    1. **Verify the path** - Double-check each level of the hierarchy:
+    
+    ```r
+    # Start from the database level
+    build_url(URL, "PHC 2021 StatsBank")
+    
+    # Then navigate to the topic
+    build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation")
+    
+    # Finally to the table
+    build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+    ```
+
+    2. **Check spelling and spacing** - Folder and table names are case-sensitive and must match exactly.
+
+    3. **Confirm table extension** - Tables must end in `.px`
+  </Accordion>
+
+  <Accordion title="Data parsing errors when reading CSV">
+    **Problem:** `read_csv()` fails to parse the API response correctly.
+
+    **Solutions:**
+
+    1. **Check response status** - Verify you received data:
+    
+    ```r
+    response = table_req |> 
+      req_body_json(query_list) |> 
+      req_perform()
+    
+    # Should return 200
+    resp_status(response)
+    
+    # Check content type
+    resp_content_type(response)
+    ```
+
+    2. **Inspect raw response** - Look at the actual data returned:
+    
+    ```r
+    raw_data = resp_body_raw(response)
+    rawToChar(raw_data)
+    ```
+
+    3. **Adjust CSV parsing options** - Some tables may need different settings:
+    
+    ```r
+    data = response |> 
+      resp_body_raw() |> 
+      readr::read_csv(
+        locale = locale(encoding = "UTF-8"),
+        na = c("", "NA", "..")
+      )
+    ```
+  </Accordion>
+
+  <Accordion title="Missing packages or dependencies">
+    **Problem:** Required R packages are not installed.
+
+    **Solutions:**
+
+    Install required packages:
+    
+    ```r
+    # Core packages
+    install.packages("httr2")
+    install.packages("tidyverse")
+    
+    # Additional helpful packages
+    install.packages("jsonlite")
+    install.packages("readr")
+    ```
+
+    Load packages at the start of your script:
+    
+    ```r
+    library(httr2)
+    library(tidyverse)
+    ```
+  </Accordion>
+
+  <Accordion title="Helper function build_url() not working">
+    **Problem:** The `build_url()` helper function returns errors or unexpected results.
+
+    **Solutions:**
+
+    1. **Verify function definition** - Ensure the complete function is defined:
+    
+    ```r
+    build_url = function(URL, ...) {
+      path = list(...)
+      req = request(URL)
+      
+      full_req = purrr::reduce(path, req_url_path_append, .init = req)
+      
+      is_table = FALSE
+      if (length(path) > 0) {
+        if (grepl("\\.px$", path[[length(path)]], ignore.case = TRUE)) {
+          is_table = TRUE
+        }
+      }
+      
+      response = req_perform(full_req)
+      body = resp_body_json(response)
+      
+      if (is_table) {
+        message("Endpoint reached: Table found.")
+        message("Available variables:")
+        print(map_chr(body$variables, "code"))
+      } else {
+        key = if(length(path) == 0) "dbid" else "id"
+        print(map_chr(body, key))
+      }
+      
+      return(full_req)
+    }
+    ```
+
+    2. **Check purrr is loaded** - The function requires `purrr` from tidyverse:
+    
+    ```r
+    library(purrr)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Additional Help
+
+<CardGroup cols={2}>
+  <Card title="PxWeb Documentation" icon="book" href="/resources/pxweb-documentation">
+    Review the official PxWeb API specification
+  </Card>
+
+  <Card title="Available Databases" icon="database" href="/resources/available-databases">
+    Check the list of available databases and their structure
+  </Card>
+</CardGroup>
+
+## Debugging Tips
+
+<Steps>
+  <Step title="Enable verbose output">
+    Use `req_verbose()` to see full HTTP request and response details:
+    
+    ```r
+    table_req |> 
+      req_body_json(query_list) |> 
+      req_verbose() |> 
+      req_perform()
+    ```
+  </Step>
+
+  <Step title="Test incrementally">
+    Build your query step by step, testing each component:
+    
+    ```r
+    # Test 1: Can you reach the database?
+    build_url(URL, "PHC 2021 StatsBank")
+    
+    # Test 2: Can you reach the topic?
+    build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation")
+    
+    # Test 3: Can you reach the table?
+    table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+    ```
+  </Step>
+
+  <Step title="Validate metadata">
+    Always check metadata before building queries:
+    
+    ```r
+    metadata = table_req |> req_perform() |> resp_body_json()
+    str(metadata, max.level = 2)
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+If you continue experiencing issues after trying these solutions, the API may be undergoing maintenance or experiencing technical difficulties. Try again later or contact the Ghana Statistical Service for support.
+</Warning>

@@ -1,0 +1,118 @@
+---
+title: PxWeb API Documentation
+description: Official documentation and resources for the PxWeb API technology
+---
+
+The GSS StatsBank API is built on **PxWeb** technology, a standard API framework used by statistical agencies worldwide. Understanding the PxWeb API specification will help you work more effectively with the GSS API.
+
+## Official PxWeb Documentation
+
+The complete PxWeb API specification is available from Statistics Sweden (SCB):
+
+<Card title="PxWeb API 1.0 Description" icon="file-pdf" href="https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf">
+  Official PDF documentation covering the complete PxWeb API specification, including request formats, response types, and filtering options.
+</Card>
+
+## Key Concepts
+
+### API Structure
+
+The PxWeb API uses a hierarchical structure similar to a file system:
+
+- **Folders** - Databases and levels that contain other folders or tables
+- **Tables** - Data endpoints identified by the `.px` file extension
+- **Variables** - Columns or dimensions within tables
+- **Values** - Specific data points or categories within variables
+
+### Request Methods
+
+<CardGroup cols={2}>
+  <Card title="GET Requests" icon="download">
+    Used to navigate the API structure and retrieve metadata about databases, folders, and tables.
+  </Card>
+
+  <Card title="POST Requests" icon="upload">
+    Used to retrieve actual data from tables by submitting a JSON query with variable selections and response format.
+  </Card>
+</CardGroup>
+
+## Response Formats
+
+The PxWeb API supports multiple response formats. Specify your preferred format in the `response.format` field of your query:
+
+| Format | Description | Use Case |
+|--------|-------------|----------|
+| `csv` | Comma-separated values | Easy import into R, Excel, or other tools |
+| `json` | JavaScript Object Notation | Structured data for web applications |
+| `json-stat` | JSON-stat format | Specialized statistical data format |
+| `json-stat2` | JSON-stat 2.0 format | Updated statistical data format |
+| `px` | PX-file format | Native PxWeb format |
+
+## Query Filters
+
+The PxWeb API documentation describes several filter types for selecting data:
+
+### Item Filter
+
+Select specific values from a variable:
+
+```r
+list(
+  code = "WaterDisposal",
+  selection = list(
+    filter = "item",
+    values = list(
+      "Through the sewerage system",
+      "Flows or thrown into drains/gutter"
+    )
+  )
+)
+```
+
+### All Filter
+
+Select all available values using the wildcard:
+
+```r
+list(
+  code = "Geographic_Area",
+  selection = list(
+    filter = "all",
+    values = list("*")
+  )
+)
+```
+
+### Additional Filters
+
+Refer to the [official PxWeb documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) for more advanced filtering options including:
+
+- `top` - Select top N values
+- `bottom` - Select bottom N values
+- `agg` - Aggregate values based on groupings
+
+## Other Statistical Agencies Using PxWeb
+
+Many national statistical agencies worldwide use the PxWeb API:
+
+- Statistics Sweden (SCB)
+- Statistics Norway (SSB)
+- Statistics Denmark (DST)
+- Statistics Finland
+- And many others
+
+<Tip>
+Examples and code from other PxWeb implementations may be adaptable to the GSS StatsBank API with minimal modifications.
+</Tip>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Available Databases" icon="database" href="/resources/available-databases">
+    Browse the complete list of GSS databases
+  </Card>
+
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Solutions to common issues
+  </Card>
+</CardGroup>

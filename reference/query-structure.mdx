@@ -1,0 +1,294 @@
+---
+title: "Query Structure"
+description: "Reference documentation for the JSON query structure used in GSS StatsBank API requests"
+---
+
+## Overview
+
+The GSS StatsBank API requires queries to be sent as JSON objects in POST requests. The query structure defines which variables to retrieve, how to filter them, and what format to return the data in.
+
+## Complete Query Structure
+
+A complete query consists of two main components:
+
+```r
+query_list = list(
+  query = list(
+    # Variable selections go here
+  ),
+  response = list(
+    format = "csv"  # or other supported format
+  )
+)
+```
+
+## Query Component
+
+The `query` component is a list of variable selections. Each variable selection defines:
+- Which variable to filter
+- How to filter it (selection method)
+- Which values to include
+
+### Variable Selection Structure
+
+```r
+list(
+  code = "VariableName",
+  selection = list(
+    filter = "item",  # or "all"
+    values = list("Value1", "Value2")
+  )
+)
+```
+
+### Parameters
+
+<ParamField path="code" type="string" required>
+  The variable name as shown in the table metadata. Use `build_url()` to discover available variable codes for a table.
+  
+  Example values:
+  - `"WaterDisposal"`
+  - `"Geographic_Area"`
+  - `"Locality"`
+</ParamField>
+
+<ParamField path="selection" type="object" required>
+  Defines how to filter the variable's values.
+</ParamField>
+
+<ParamField path="selection.filter" type="string" required>
+  The filter method to apply:
+  - `"item"`: Select specific values listed in the `values` array
+  - `"all"`: Select all available values (use `"*"` in values)
+  
+  Refer to the [PxWeb API documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) for additional filter options.
+</ParamField>
+
+<ParamField path="selection.values" type="array" required>
+  Array of values to include:
+  - For `filter = "item"`: List of specific value strings
+  - For `filter = "all"`: Single element `list("*")`
+</ParamField>
+
+## Response Component
+
+The `response` component specifies the format for returned data.
+
+<ParamField path="format" type="string" required>
+  The desired output format. See [Response Formats](/reference/response-formats) for available options.
+  
+  Common values:
+  - `"csv"`: Comma-separated values
+  - `"json"`: JSON format
+  - `"json-stat"`: JSON-stat format
+  - `"json-stat2"`: JSON-stat2 format
+</ParamField>
+
+## Complete Example
+
+### Water Disposal Data Query
+
+This example retrieves water disposal data for specific methods across all geographic areas:
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+```
+
+### Breakdown
+
+**First Variable (WaterDisposal):**
+- Uses `filter = "item"` to select specific disposal methods
+- Includes only two values:
+  - Total households (baseline)
+  - Sewerage system disposal method
+
+**Second Variable (Geographic_Area):**
+- Uses `filter = "all"` to include all regions
+- Value is `list("*")` which is the wildcard selector
+
+**Response Format:**
+- Requests CSV format for easy processing with `read_csv()`
+
+## Discovering Available Values
+
+To find valid values for the `values` parameter, query the table metadata:
+
+```r
+# 1. Fetch the metadata for the table
+metadata = table_req |> 
+  req_perform() |> 
+  resp_body_json()
+
+# 2. Find the variable you are interested in
+variable_info = metadata$variables |> 
+  purrr::keep(~ .x$code == "WaterDisposal") |> 
+  purrr::flatten()
+
+# 3. Print the available options 
+tibble(
+  Code = unlist(variable_info$values)
+)
+```
+
+Output:
+```
+# A tibble: 6 × 1
+  Code                                      
+  <chr>                                     
+1 Total households in occupied dwelling unit
+2 Thrown onto the ground/street/outside     
+3 Through the sewerage system               
+4 Through drainage into a pit (soak away)   
+5 Flows or thrown into drains/gutter        
+6 Other (Specify)
+```
+
+## Multiple Variable Selections
+
+You can include as many variable selections as needed:
+
+```r
+query_list = list(
+  query = list(
+    # Variable 1
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list("Total households in occupied dwelling unit")
+      )
+    ),
+    # Variable 2
+    list(
+      code = "Geographic_Area",
+      selection = list(
+        filter = "item",
+        values = list("Ghana", "Greater Accra", "Ashanti")
+      )
+    ),
+    # Variable 3
+    list(
+      code = "Locality",
+      selection = list(
+        filter = "all",
+        values = list("*")
+      )
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+```
+
+## Filter Types
+
+### Item Filter
+
+Selects specific values explicitly listed:
+
+```r
+selection = list(
+  filter = "item",
+  values = list("Ghana", "Greater Accra", "Western")
+)
+```
+
+Use when you want to:
+- Select specific categories
+- Limit results to certain regions
+- Compare particular values
+
+### All Filter
+
+Selects all available values for a variable:
+
+```r
+selection = list(
+  filter = "all",
+  values = list("*")
+)
+```
+
+Use when you want to:
+- Include every option without listing them
+- Retrieve comprehensive datasets
+- Avoid hardcoding specific values
+
+## Important Notes
+
+### All Variables Must Be Selected
+
+You must provide a selection for every variable shown in the table metadata. If a variable is omitted, the API may:
+- Return an error
+- Aggregate the data unexpectedly
+- Return incomplete results
+
+### Value Matching
+
+Variable values are **case-sensitive** and must match exactly as shown in the metadata:
+
+```r
+# Correct
+values = list("Through the sewerage system")
+
+# Incorrect - will fail
+values = list("through the sewerage system")  # wrong case
+values = list("Sewerage system")              # missing prefix
+```
+
+### List Structure
+
+R requires the `list()` function for both the values array and the overall structure:
+
+```r
+# Correct
+values = list("Value1", "Value2")
+
+# Incorrect
+values = c("Value1", "Value2")  # vector instead of list
+values = "Value1"                # single string instead of list
+```
+
+## Sending the Query
+
+Attach the query to your request and perform it:
+
+```r
+# Attach query to saved table request
+final_req = table_req |> 
+  req_body_json(query_list)
+
+# Perform the POST request
+response = final_req |> 
+  req_perform()
+```
+
+The API requires a POST request (not GET) when retrieving data with a query.
+
+## Additional Filter Options
+
+The PxWeb API supports additional filter types beyond `"item"` and `"all"`. Refer to the [PxWeb API documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf) for:
+- Range filters
+- Top/bottom filters
+- Pattern matching filters
+- And more advanced selection methods

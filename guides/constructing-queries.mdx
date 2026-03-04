@@ -1,0 +1,272 @@
+---
+title: Constructing Queries
+description: Learn how to build JSON queries to retrieve specific data from the GSS StatsBank API
+---
+
+## Overview
+
+Once you've navigated to a specific table, you need to construct a query that tells the API exactly what data you want. Queries are sent as JSON objects and specify which variables to include, what filters to apply, and what format you want the response in.
+
+## Query Structure
+
+A query has two main components:
+
+1. **Query**: Specifies which variables and filters to apply
+2. **Response**: Defines the output format (e.g., CSV, JSON)
+
+<Note>
+The query structure follows the PxWeb API standard. For more details, see the [API documentation](https://www.scb.se/globalassets/vara-tjanster/px-programmen/pxwebapi1.0_description_2024.pdf).
+</Note>
+
+## Prerequisites
+
+This guide assumes you've already:
+
+- Established a connection to the API
+- Navigated to a specific table
+- Saved the table request to a variable (e.g., `table_req`)
+
+```r
+# From the previous navigation step
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+```
+
+## Building a Basic Query
+
+<Steps>
+
+<Step title="Understand Available Variables">
+
+When you navigated to the table, you saw the available variables:
+
+```r
+[1] "WaterDisposal"   "Locality"        "Geographic_Area"
+```
+
+These are the variables you can filter and select in your query.
+
+</Step>
+
+<Step title="Define Your Query List">
+
+Create a query to select specific water disposal methods:
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system") # Selecting one specific method
+      )
+    ),
+    # We must select values for other variables or the API might aggregate them
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv" # We want the data back as a CSV
+  )
+)
+```
+
+</Step>
+
+<Step title="Understand the Query Components">
+
+Let's break down each part:
+
+**Variable Selection**:
+```r
+list(
+  code = "WaterDisposal",  # The variable name
+  selection = list(
+    filter = "item",        # Filter type
+    values = list(...)      # Specific values to include
+  )
+)
+```
+
+**Geographic Area (all values)**:
+```r
+list(
+   code = "Geographic_Area",
+   selection = list(filter = "all", values = list("*"))
+)
+```
+
+**Response Format**:
+```r
+response = list(
+  format = "csv"  # Options: csv, json, json-stat, json-stat2, px
+)
+```
+
+</Step>
+
+</Steps>
+
+## Filter Types
+
+The API supports different filter types for variable selection:
+
+### Item Filter
+
+Select specific values from a variable:
+
+```r
+selection = list(
+  filter = "item",
+  values = list(
+    "Total households in occupied dwelling unit",
+    "Through the sewerage system"
+  )
+)
+```
+
+<Tip>
+Use the "item" filter when you want to select only certain categories from a variable.
+</Tip>
+
+### All Filter
+
+Select all available values using the wildcard `*`:
+
+```r
+selection = list(
+  filter = "all",
+  values = list("*")
+)
+```
+
+<Note>
+You must include all variables from the table in your query, either by selecting specific values or using the "all" filter.
+</Note>
+
+## Response Formats
+
+The API supports multiple output formats:
+
+| Format | Description | Use Case |
+|--------|-------------|----------|
+| `csv` | Comma-separated values | Easy to parse with `read_csv()` |
+| `json` | JSON format | Web applications, flexible parsing |
+| `json-stat` | JSON-stat format | Statistical applications |
+| `json-stat2` | JSON-stat version 2 | Updated statistical format |
+| `px` | PC-Axis format | Native PxWeb format |
+
+<Tip>
+CSV format is recommended for most R workflows as it integrates seamlessly with `readr::read_csv()`.
+</Tip>
+
+## Complete Query Example
+
+Here's a complete example querying water disposal data:
+
+```r
+# Define the query
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "csv"
+  )
+)
+```
+
+## Advanced Query Patterns
+
+<Accordion title="Selecting Multiple Specific Values">
+
+Select multiple specific categories:
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system",
+          "Through drainage into a pit (soak away)",
+          "Flows or thrown into drains/gutter"
+        )
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(format = "csv")
+)
+```
+
+</Accordion>
+
+<Accordion title="Requesting JSON Format">
+
+Get data in JSON format instead of CSV:
+
+```r
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list("Total households in occupied dwelling unit")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(
+    format = "json"  # Changed to JSON
+  )
+)
+```
+
+</Accordion>
+
+## Common Issues
+
+<Warning>
+**All Variables Required**: You must include all table variables in your query. If a table has three variables, your query must specify selections for all three.
+</Warning>
+
+<Warning>
+**Exact Value Names**: Variable values are case-sensitive and must match exactly as returned by the metadata. "Through the sewerage system" is different from "through the sewerage system".
+</Warning>
+
+## Finding Valid Values
+
+Not sure what values to use in your query? See the [Working with Metadata](/guides/working-with-metadata) guide to learn how to inspect table metadata and find all valid values for each variable.
+
+## Next Steps
+
+Now that you've constructed a query, you're ready to retrieve and parse the data.
+
+See the [Retrieving Data](/guides/retrieving-data) guide to learn how to execute your query and process the results.

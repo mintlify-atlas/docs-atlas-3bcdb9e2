@@ -1,0 +1,88 @@
+---
+title: "Prerequisites"
+description: "Set up your R environment with the required packages to work with the GSS StatsBank API"
+---
+
+## Required Packages
+
+To work with the GSS StatsBank API in R, you'll need two key packages:
+
+<Steps>
+
+<Step title="Install httr2">
+
+The `httr2` package handles HTTP requests and responses, allowing you to communicate with the API.
+
+```r
+install.packages("httr2")
+```
+
+</Step>
+
+<Step title="Install tidyverse">
+
+The `tidyverse` package provides tools for data manipulation and transformation, which you'll use to clean and reshape the API responses.
+
+```r
+install.packages("tidyverse")
+```
+
+</Step>
+
+<Step title="Load the packages">
+
+Once installed, load both packages at the beginning of your script:
+
+```r
+library(httr2)
+library(tidyverse)
+```
+
+</Step>
+
+</Steps>
+
+## Package Overview
+
+### httr2
+
+`httr2` is a modern HTTP client for R that provides a clean, pipe-friendly interface for making API requests. Key functions you'll use:
+
+- `request()` - Initialize an API request
+- `req_url_path_append()` - Build URL paths incrementally
+- `req_body_json()` - Attach JSON query data to requests
+- `req_perform()` - Execute the HTTP request
+- `resp_body_json()` - Parse JSON responses
+- `resp_body_raw()` - Get raw response data (for CSV responses)
+
+<Tip>
+The `httr2` package uses a pipe-friendly design, making it easy to chain operations together with `|>` or `%>%`.
+</Tip>
+
+### tidyverse
+
+The `tidyverse` is a collection of R packages for data science. For this guide, you'll primarily use:
+
+- `purrr` - For functional programming (mapping, reducing)
+- `readr` - For reading CSV data
+- `tidyr` - For reshaping data (pivoting wide to long format)
+- `dplyr` - For data manipulation (renaming, filtering)
+
+## Verify Installation
+
+You can verify that the packages are installed correctly by running:
+
+```r
+packageVersion("httr2")
+packageVersion("tidyverse")
+```
+
+If both commands return version numbers without errors, you're ready to proceed.
+
+<Note>
+Make sure you have R version 4.0 or higher installed. You can check your R version with `R.version.string`.
+</Note>
+
+## Next Steps
+
+With your environment set up, you're ready to start retrieving data. Continue to the [Quick Start](/quickstart) guide to make your first API request.

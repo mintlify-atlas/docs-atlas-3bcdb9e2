@@ -1,0 +1,384 @@
+---
+title: Retrieving Data
+description: Learn how to execute queries and parse API responses into analysis-ready dataframes
+---
+
+## Overview
+
+Once you've constructed a query, you need to send it to the API, retrieve the response, and parse it into a usable format. This guide shows you how to execute queries and transform the raw data into analysis-ready dataframes.
+
+## Prerequisites
+
+This guide assumes you've already:
+
+- Established a connection and navigated to a table
+- Saved the table request (e.g., `table_req`)
+- Constructed a query object (e.g., `query_list`)
+
+```r
+# From previous steps
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(format = "csv")
+)
+```
+
+## Executing the Query
+
+<Steps>
+
+<Step title="Attach the Query to Your Request">
+
+Combine your saved table request with the query:
+
+```r
+final_req = table_req |> 
+  req_body_json(query_list)
+```
+
+This attaches the query parameters to the request object.
+
+</Step>
+
+<Step title="Perform the POST Request">
+
+Execute the request to retrieve data:
+
+```r
+response = final_req |> 
+  req_perform()
+```
+
+<Note>
+The API requires a **POST** request to retrieve actual data. This is different from the GET requests used for navigation.
+</Note>
+
+</Step>
+
+<Step title="Parse the Response">
+
+Convert the raw response into a dataframe:
+
+```r
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv()
+```
+
+The `resp_body_raw()` function extracts the raw CSV bytes, which are then parsed by `read_csv()`.
+
+</Step>
+
+</Steps>
+
+## Transforming the Data
+
+The raw data often comes in a "wide" format with regions as columns. You'll typically want to reshape it into a tidy format for analysis.
+
+<Steps>
+
+<Step title="View the Raw Data Structure">
+
+The initial data structure looks like this:
+
+```r
+head(data)
+# A wide table with geographic areas as column headers
+```
+
+</Step>
+
+<Step title="Pivot to Long Format">
+
+Transform the data into a long format:
+
+```r
+data = data |> 
+  tidyr::pivot_longer(
+    cols = -1,  # All columns except the first
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  )
+```
+
+This converts geographic areas from column headers to rows.
+
+</Step>
+
+<Step title="Pivot to Wide Format by Variable">
+
+Reshape so each water disposal method becomes a column:
+
+```r
+data = data |>
+  tidyr::pivot_wider(
+    names_from = 1,  # First column contains variable names
+    values_from = count
+  )
+```
+
+</Step>
+
+<Step title="Rename Columns for Clarity">
+
+Create cleaner column names:
+
+```r
+data = data |> 
+  rename(
+    total_households = `Total households in occupied dwelling unit`,
+    sewerage_disposal = `Through the sewerage system`
+  )
+```
+
+</Step>
+
+</Steps>
+
+## Complete Data Retrieval Pipeline
+
+Here's the full pipeline from query to clean data:
+
+```r
+# Attach the query to our existing request object
+final_req = table_req |> 
+  req_body_json(query_list)
+
+# Perform the request 
+response = final_req |> 
+  req_perform()  
+
+# Parse and transform the data
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  tidyr::pivot_longer(
+    cols = -1, 
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  ) |>
+  tidyr::pivot_wider(
+    names_from = 1, 
+    values_from = count
+  ) |> 
+  rename(
+    total_households = `Total households in occupied dwelling unit`,
+    sewerage_disposal = `Through the sewerage system`
+  )
+```
+
+## Viewing the Results
+
+<Steps>
+
+<Step title="Preview the First Rows">
+
+Check the first few rows of your clean data:
+
+```r
+head(data, n=10)
+```
+
+Expected output:
+
+```r
+# A tibble: 10 × 3
+   Geographic_Area                           total_households sewerage_disposal
+   <chr>                                                <dbl>            <dbl>
+ 1 Ghana                                              8356779           192638
+ 2 Western                                             620785             9238
+ 3 Jomoro Municipal                                     39438              418
+ 4 Ellembelle                                           37206              651
+ 5 Nzema East Municipal                                 28386              116
+ 6 Ahanta West Municipal                                47288              581
+ 7 Effia Kwesimintsim Municipal                         53717             1650
+ 8 Sekondi Takoradi Metropolitan Area (STMA)            73876             1406
+ 9 STMA-Takoradi                                        16271              323
+10 STMA-Sekondi                                         17137              404
+```
+
+</Step>
+
+<Step title="Verify Data Types">
+
+Check the structure of your dataframe:
+
+```r
+str(data)
+```
+
+Ensure numeric columns are properly typed as `<dbl>` and character columns as `<chr>`.
+
+</Step>
+
+</Steps>
+
+## Handling Different Response Formats
+
+<Accordion title="Working with JSON Responses">
+
+If you requested JSON format instead of CSV:
+
+```r
+# Query with JSON format
+query_list = list(
+  query = list(...),
+  response = list(format = "json")
+)
+
+# Parse JSON response
+response = final_req |> req_perform()
+data = response |> resp_body_json()
+
+# data is now a nested list structure
+```
+
+</Accordion>
+
+<Accordion title="Handling Large Datasets">
+
+For large responses, consider streaming or pagination:
+
+```r
+# Set a timeout for large requests
+final_req = table_req |> 
+  req_body_json(query_list) |>
+  req_timeout(60)  # 60 second timeout
+
+response = final_req |> req_perform()
+```
+
+</Accordion>
+
+## Data Transformation Patterns
+
+<Tip>
+**Pipeline Approach**: Chain operations together using the pipe operator (`|>`) for clean, readable code that transforms data in logical steps.
+</Tip>
+
+### Creating Calculated Fields
+
+Add derived columns to your data:
+
+```r
+data = data |> 
+  mutate(
+    sewerage_percentage = (sewerage_disposal / total_households) * 100,
+    non_sewerage = total_households - sewerage_disposal
+  )
+```
+
+### Filtering Results
+
+Filter to specific geographic areas:
+
+```r
+# Filter to regional level only
+regional_data = data |> 
+  filter(Geographic_Area %in% c("Ghana", "Western", "Eastern", "Greater Accra"))
+```
+
+## Error Handling
+
+<Warning>
+**Empty Results**: If your query returns no data, check that your variable values match exactly with the metadata. Values are case-sensitive.
+</Warning>
+
+<Warning>
+**Parsing Errors**: If `read_csv()` fails, verify that you specified `format = "csv"` in your query's response section.
+</Warning>
+
+## Saving Your Data
+
+Save the processed data for later use:
+
+```r
+# Save as CSV
+write_csv(data, "water_disposal_data.csv")
+
+# Save as RDS (preserves R data types)
+saveRDS(data, "water_disposal_data.rds")
+
+# Load RDS later
+data = readRDS("water_disposal_data.rds")
+```
+
+## Complete Working Example
+
+Here's a complete script from start to finish:
+
+```r
+library(httr2)
+library(tidyverse)
+
+# Setup
+URL = "https://statsbank.statsghana.gov.gh:443/api/v1/en/"
+table_req = build_url(URL, "PHC 2021 StatsBank", "Water and Sanitation", "waterDisposal_table.px")
+
+# Query
+query_list = list(
+  query = list(
+    list(
+      code = "WaterDisposal",
+      selection = list(
+        filter = "item",
+        values = list(
+          "Total households in occupied dwelling unit",
+          "Through the sewerage system")
+      )
+    ),
+    list(
+       code = "Geographic_Area",
+       selection = list(filter = "all", values = list("*"))
+    )
+  ),
+  response = list(format = "csv")
+)
+
+# Retrieve and parse
+response = table_req |> 
+  req_body_json(query_list) |> 
+  req_perform()
+
+data = response |> 
+  resp_body_raw() |> 
+  readr::read_csv() |> 
+  tidyr::pivot_longer(
+    cols = -1, 
+    names_to = "Geographic_Area", 
+    values_to = "count" 
+  ) |>
+  tidyr::pivot_wider(
+    names_from = 1, 
+    values_from = count
+  ) |> 
+  rename(
+    total_households = `Total households in occupied dwelling unit`,
+    sewerage_disposal = `Through the sewerage system`
+  )
+
+# View results
+head(data, n=10)
+```
+
+## Next Steps
+
+Learn how to inspect table metadata to discover all available variables and their valid values.
+
+See the [Working with Metadata](/guides/working-with-metadata) guide to explore table structure and find valid query parameters.
