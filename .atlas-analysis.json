@@ -1,0 +1,70 @@
+{
+  "projectType": "general",
+  "projectName": "GSS StatsBank API with R",
+  "projectDescription": "A comprehensive guide for accessing Ghana Statistical Service census and survey data programmatically using R and the PxWeb API.",
+  "theme": "palm",
+  "primaryColor": "#006B3F",
+  "lightColor": "#FCD116",
+  "darkColor": "#CE1126",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "prerequisites",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/pxweb-api",
+          "concepts/database-structure",
+          "concepts/api-navigation"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "guides/connecting-to-api",
+          "guides/navigating-databases",
+          "guides/constructing-queries",
+          "guides/retrieving-data",
+          "guides/working-with-metadata"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "reference/build-url-function",
+          "reference/query-structure",
+          "reference/response-formats",
+          "reference/complete-example"
+        ]
+      },
+      {
+        "group": "Resources",
+        "pages": [
+          "resources/available-databases",
+          "resources/pxweb-documentation",
+          "resources/troubleshooting"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Connect to GSS StatsBank PxWeb API",
+    "Navigate hierarchical database structure",
+    "Build and execute data queries",
+    "Retrieve and parse census data",
+    "Automated data updates with R"
+  ],
+  "publicApiSurface": [
+    "build_url() helper function",
+    "API connection with httr2::request()",
+    "Database navigation workflow",
+    "JSON query construction",
+    "Data retrieval and transformation pipeline"
+  ]
+}
